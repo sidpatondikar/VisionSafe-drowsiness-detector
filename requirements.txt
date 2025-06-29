@@ -1,0 +1,27 @@
+# Core
+numpy
+pandas
+opencv-python
+Pillow
+tqdm
+pyyaml
+
+# ML & DL
+tensorflow
+scikit-learn
+matplotlib
+seaborn
+
+# Facial landmarks
+mediapipe
+
+# Web app
+streamlit
+streamlit-webrtc
+
+# Alerts
+pygame
+#playsound
+
+# Optional: use pygame instead of playsound for better audio control
+# pygame
