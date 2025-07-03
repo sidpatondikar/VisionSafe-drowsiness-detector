@@ -3,19 +3,37 @@ import numpy as np
 import tensorflow as tf
 import mediapipe as mp
 from head_pose_estimation import HeadPoseEstimator
+import pygame
+import threading
+import time
 
-# Load trained eye-state model
+# === Load model ===
 eye_model = tf.keras.models.load_model('models/eye_state_model.keras')
 
-# MediaPipe FaceMesh for eye landmarks
+# === MediaPipe setup ===
 mp_face_mesh = mp.solutions.face_mesh
 face_mesh = mp_face_mesh.FaceMesh(static_image_mode=False, max_num_faces=1, refine_landmarks=True)
 
-# Use same indices as head pose code for eyes (based on your MediaPipe mapping)
+# === Eye landmark indices (MediaPipe format) ===
 LEFT_EYE_IDXS = [362, 263]
 RIGHT_EYE_IDXS = [33, 133]
 
 pose_estimator = HeadPoseEstimator()
+
+# === Sound setup ===
+pygame.mixer.init()
+drowsy_alert = pygame.mixer.Sound("assets/alert_drowsy.wav")
+distracted_alert = pygame.mixer.Sound("assets/alert_distracted.wav")
+
+def play_alert(sound):
+    threading.Thread(target=sound.play, daemon=True).start()
+
+# === Scoring and cooldown state ===
+score = 0
+MAX_SCORE = 100
+last_drowsy_alert = 0
+last_distracted_alert = 0
+ALERT_COOLDOWN = 3  # seconds
 
 def crop_eye(img, landmarks, indices):
     h, w = img.shape[:2]
@@ -48,7 +66,7 @@ def get_driver_status(left, right, pitch):
         return "Uncertain"
     return "Safe"
 
-def draw_info(frame, left_eye, right_eye, angles, status):
+def draw_info(frame, left_eye, right_eye, angles, status, score):
     pitch, yaw, roll = angles
     cv2.putText(frame, f"Left Eye: {left_eye}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,0), 2)
     cv2.putText(frame, f"Right Eye: {right_eye}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,0), 2)
@@ -58,7 +76,13 @@ def draw_info(frame, left_eye, right_eye, angles, status):
     color = (0,255,0) if status=="Safe" else (0,255,255) if status=="Distracted" else (0,0,255)
     cv2.putText(frame, f"Status: {status}", (10, 190), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
 
+    # Score display
+    cv2.putText(frame, f"Score: {score}/100", (10, 225), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 2)
+    cv2.rectangle(frame, (10, 250), (210, 270), (50, 50, 50), -1)
+    cv2.rectangle(frame, (10, 250), (10 + 2 * score, 270), color, -1)
+
 def main():
+    global score, last_drowsy_alert, last_distracted_alert
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
         print("❌ Cannot access webcam")
@@ -69,13 +93,10 @@ def main():
         if not ret:
             break
 
-        # Get head pose estimate
         pose_frame, angles = pose_estimator.estimate_pose(frame.copy())
 
         if angles:
             pitch, yaw, roll = angles
-
-            # For eyes: extract from landmarks
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             result = face_mesh.process(rgb)
 
@@ -86,7 +107,25 @@ def main():
                 left_state = get_eye_state(left_patch)
                 right_state = get_eye_state(right_patch)
                 status = get_driver_status(left_state, right_state, pitch)
-                draw_info(pose_frame, left_state, right_state, angles, status)
+
+                # === Update score and handle alerts ===
+                current_time = time.time()
+
+                if status == "Drowsy":
+                    score += 2
+                    if score > 70 and (current_time - last_drowsy_alert) > ALERT_COOLDOWN:
+                        play_alert(drowsy_alert)
+                        last_drowsy_alert = current_time
+                elif status == "Distracted":
+                    score += 1
+                    if score > 70 and (current_time - last_distracted_alert) > ALERT_COOLDOWN:
+                        play_alert(distracted_alert)
+                        last_distracted_alert = current_time
+                else:
+                    score -= 1
+
+                score = max(0, min(score, MAX_SCORE))
+                draw_info(pose_frame, left_state, right_state, angles, status, score)
             else:
                 cv2.putText(pose_frame, "Face not detected", (10,30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,0,255), 2)
 
