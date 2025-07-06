@@ -1,37 +1,3 @@
-# import os
-# import cv2
-# import numpy as np
-
-# DATA_DIR = 'data'
-# SPLITS = ['train', 'val', 'test']
-# CATEGORIES = {'awake': 1, 'sleepy': 0}
-# IMG_SIZE = 64
-
-# def preprocess_image(path):
-#     img = cv2.imread(path)
-#     img = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
-#     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-#     img = img / 255.0
-#     return img
-
-# def process_split(split):
-#     X, y = [], []
-#     for label_name, label_value in CATEGORIES.items():
-#         folder = os.path.join(DATA_DIR, split, label_name)
-#         for fname in os.listdir(folder):
-#             path = os.path.join(folder, fname)
-#             if os.path.isfile(path):
-#                 X.append(preprocess_image(path))
-#                 y.append(label_value)
-#     return np.array(X), np.array(y)
-
-# if __name__ == "__main__":
-#     for split in SPLITS:
-#         X, y = process_split(split)
-#         np.save(f'data/X_{split}.npy', X)
-#         np.save(f'data/y_{split}.npy', y)
-#         print(f"{split} set: {X.shape}, {y.shape}")
-
 import tensorflow as tf
 import os
 

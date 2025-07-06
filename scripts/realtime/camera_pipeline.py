@@ -1,8 +1,14 @@
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+
 import cv2
 import numpy as np
 import tensorflow as tf
 import mediapipe as mp
-from head_pose_estimation import HeadPoseEstimator
+from pose_estimation.head_pose_estimation import HeadPoseEstimator
 import pygame
 import threading
 import time
